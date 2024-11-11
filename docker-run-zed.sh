@@ -27,5 +27,5 @@ docker run -it --runtime=nvidia \
    --env NVIDIA_VISIBLE_DEVICES=all \
    --env QT_X11_NO_MITSHM=1 \
    --volume /tmp/.X11-unix:/tmp/.X11-unix \
-   --volume /home/utsma/zed_sdk_docker/sdk_config:/usr/local/zed/resources \
+   --volume /home/utsma/zedsdk_ros2_docker/sdk_config:/usr/local/zed/resources \
    $IMAGE_NAME
