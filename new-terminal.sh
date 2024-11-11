@@ -1,3 +1,3 @@
-CONTAINER_NAME=simulation_container
+CONTAINER_NAME=zed_container
 
 sudo docker exec -it $CONTAINER_NAME bash
