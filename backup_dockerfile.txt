@@ -1,0 +1,68 @@
+# Start from DustyNV's L4T r36.3.0 base image
+FROM dustynv/l4t-base:r36.3.0
+
+# Install prerequisites
+RUN apt-get update && apt-get install -y \
+    wget \
+    lsb-release \
+    gnupg2 \
+    zstd \
+    curl \
+    python3-pip \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add the ROS2 repository for Humble
+RUN apt-get update && \
+    curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key | apt-key add - && \
+    echo "deb http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/ros2-latest.list && \
+    apt-get update
+
+# Install ROS2 Humble
+RUN apt-get update && apt-get install -y \
+    ros-humble-desktop \
+    python3-rosdep \
+    python3-rosinstall-generator \
+    python3-vcstool \
+    python3-rosinstall \
+    && rm -rf /var/lib/apt/lists/*
+
+# Initialize rosdep
+RUN rosdep init && rosdep update
+
+# Set up ROS environment variables
+SHELL ["/bin/bash", "-c"]
+RUN echo "source /opt/ros/humble/setup.bash" >> ~/.bashrc
+
+# Download and install ZED SDK 4.2 for L4T r36.3
+RUN wget --no-check-certificate https://download.stereolabs.com/zedsdk/4.2/l4t36.3/jetsons -O ZED_SDK_Tegra_L4T36.3_v4.2.1.zstd.run && \
+    chmod +x ZED_SDK_Tegra_L4T36.3_v4.2.1.zstd.run && \
+    ./ZED_SDK_Tegra_L4T36.3_v4.2.1.zstd.run -- silent && \
+    rm ZED_SDK_Tegra_L4T36.3_v4.2.1.zstd.run
+
+# Set up environment variables for the ZED SDK
+ENV ZED_SDK_ROOT="/usr/local/zed"
+ENV LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/local/zed/lib"
+ENV PYTHONPATH="$PYTHONPATH:/usr/local/zed/python"
+
+# Install Python dependencies for ROS2 and ZED
+RUN pip3 install PyOpenGL PyOpenGL_accelerate
+
+# Set up ROS2 workspace and clone the ZED ROS2 wrapper repository
+RUN mkdir -p ~/ros2_ws/src/ && \
+    cd ~/ros2_ws/src/ && \
+    git clone --recursive https://github.com/stereolabs/zed-ros2-wrapper.git
+
+# Update package list, source ROS setup, initialize ROS dependencies, install dependencies, and build the workspace
+RUN . /opt/ros/humble/setup.sh && \
+    cd ~/ros2_ws && \
+    rosdep install --from-paths src --ignore-src -r -y && \
+    colcon build --symlink-install --cmake-args=-DCMAKE_BUILD_TYPE=Release --parallel-workers $(nproc) && \
+    echo "source ~/ros2_ws/install/local_setup.bash" >> ~/.bashrc
+
+# Set the default shell to source the workspace by default
+SHELL ["/bin/bash", "-c"]
+RUN source ~/.bashrc
+
+# Set the default command to start a ROS 2 shell
+CMD ["bash"]
